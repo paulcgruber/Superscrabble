@@ -1,0 +1,396 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Super Scrabble Scorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #f5f3ee;
+    color: #1a1a1a;
+    min-height: 100vh;
+    padding: 16px;
+  }
+  h1 {
+    font-size: 20px;
+    font-weight: 600;
+    letter-spacing: -0.3px;
+    margin-bottom: 4px;
+    color: #1a1a1a;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: #888;
+    margin-bottom: 20px;
+  }
+  label { font-size: 13px; color: #666; display: block; margin-bottom: 4px; }
+  input, select, button {
+    font-family: inherit;
+    font-size: 15px;
+    border-radius: 10px;
+    border: 1px solid #ddd;
+    background: #fff;
+    color: #1a1a1a;
+    padding: 8px 12px;
+    outline: none;
+  }
+  input:focus, select:focus { border-color: #aaa; }
+  button {
+    background: #1a1a1a;
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    padding: 10px 18px;
+    font-weight: 500;
+  }
+  button:active { opacity: 0.8; }
+  .btn-ghost {
+    background: none;
+    color: #888;
+    border: 1px solid #ddd;
+    font-size: 13px;
+    padding: 8px 14px;
+  }
+  .btn-danger {
+    background: none;
+    color: #c0392b;
+    border: none;
+    font-size: 13px;
+    padding: 0;
+    text-decoration: underline;
+  }
+
+  /* Setup */
+  .setup { max-width: 400px; }
+  .player-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .player-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .player-row input { flex: 1; }
+  .setup-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+
+  /* Game */
+  .game { display: none; }
+  .scoreboard {
+    display: flex;
+    gap: 8px;
+    margin-bottom: 20px;
+    flex-wrap: wrap;
+  }
+  .player-card {
+    flex: 1;
+    min-width: 90px;
+    background: #fff;
+    border: 1.5px solid #e5e5e5;
+    border-radius: 12px;
+    padding: 10px 12px;
+  }
+  .player-card.active-player { border-width: 2px; }
+  .pc-name { font-size: 11px; color: #888; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-score { font-size: 24px; font-weight: 600; }
+  .pc-turn { font-size: 11px; font-weight: 600; margin-top: 2px; }
+
+  .section-label { font-size: 13px; color: #666; margin-bottom: 6px; }
+
+  .player-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ptog {
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 500;
+    border-radius: 20px;
+    border: 1.5px solid #ddd;
+    background: #fff;
+    color: #888;
+    cursor: pointer;
+  }
+  .ptog.sel { color: #fff; border-color: transparent; }
+
+  .word-row { display: flex; gap: 8px; margin-bottom: 12px; }
+  .word-row input {
+    flex: 1;
+    font-size: 18px;
+    letter-spacing: 3px;
+    text-transform: uppercase;
+    font-weight: 600;
+  }
+
+  .tiles-area {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-bottom: 14px;
+    min-height: 10px;
+  }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; gap: 4px; }
+  .tile-letter {
+    width: 46px;
+    height: 46px;
+    background: #fff;
+    border: 1px solid #ddd;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 18px;
+    font-weight: 700;
+    position: relative;
+    color: #1a1a1a;
+  }
+  .tile-pts { position: absolute; bottom: 2px; right: 4px; font-size: 9px; color: #aaa; font-weight: 400; }
+  .tile-letter.dl { background: #dbeafe; color: #1e40af; border-color: #93c5fd; }
+  .tile-letter.tl { background: #d1fae5; color: #065f46; border-color: #6ee7b7; }
+  .tile-letter.ql { background: #dcfce7; color: #166534; border-color: #86efac; }
+  .tile-letter.dw { background: #fef3c7; color: #92400e; border-color: #fcd34d; }
+  .tile-letter.tw { background: #ffe4e6; color: #9f1239; border-color: #fda4af; }
+  .tile-letter.qw { background: #fce7f3; color: #9d174d; border-color: #f9a8d4; }
+  .tile-letter.blank { color: #bbb; font-style: italic; }
+
+  .bonus-sel {
+    width: 50px;
+    font-size: 10px;
+    padding: 2px 4px;
+    border-radius: 6px;
+    border: 1px solid #ddd;
+    background: #fff;
+    color: #1a1a1a;
+  }
+
+  .score-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .score-num { font-size: 38px; font-weight: 700; color: #1a1a1a; }
+  .score-lbl { font-size: 13px; color: #888; }
+  .breakdown { font-size: 12px; color: #999; margin-bottom: 14px; min-height: 18px; }
+
+  .history { border-top: 1px solid #e5e5e5; padding-top: 14px; margin-top: 4px; }
+  .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+  .history-header span { font-size: 13px; font-weight: 600; color: #666; }
+  .history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    padding: 6px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+  .hi-left { display: flex; align-items: center; gap: 6px; }
+  .hi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .hi-word { font-weight: 600; letter-spacing: 1px; }
+  .hi-name { font-size: 11px; color: #aaa; }
+  .hi-score { font-weight: 700; }
+
+  .legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    margin-bottom: 16px;
+    font-size: 11px;
+  }
+  .leg { display: flex; align-items: center; gap: 4px; }
+  .leg-swatch { width: 14px; height: 14px; border-radius: 3px; border: 1px solid rgba(0,0,0,0.1); }
+</style>
+</head>
+<body>
+
+<h1>Super Scrabble Scorer</h1>
+<p class="subtitle">Supports DL · TL · QL · DW · TW · QW</p>
+
+<!-- Setup -->
+<div class="setup" id="setup">
+  <label style="margin-bottom:10px;">Who's playing?</label>
+  <div id="playerInputs"></div>
+  <div class="setup-actions">
+    <button onclick="startGame()">Start game</button>
+    <button class="btn-ghost" onclick="addPlayerField()">+ player</button>
+  </div>
+</div>
+
+<!-- Game -->
+<div class="game" id="game">
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <p class="section-label">Whose turn?</p>
+  <div class="player-toggle" id="playerToggle"></div>
+
+  <p class="section-label">Word played</p>
+  <div class="word-row">
+    <input type="text" id="wordInput" placeholder="Type word…" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+  </div>
+
+  <div class="legend">
+    <div class="leg"><div class="leg-swatch" style="background:#dbeafe;border-color:#93c5fd"></div>DL</div>
+    <div class="leg"><div class="leg-swatch" style="background:#d1fae5;border-color:#6ee7b7"></div>TL</div>
+    <div class="leg"><div class="leg-swatch" style="background:#dcfce7;border-color:#86efac"></div>QL</div>
+    <div class="leg"><div class="leg-swatch" style="background:#fef3c7;border-color:#fcd34d"></div>DW</div>
+    <div class="leg"><div class="leg-swatch" style="background:#ffe4e6;border-color:#fda4af"></div>TW</div>
+    <div class="leg"><div class="leg-swatch" style="background:#fce7f3;border-color:#f9a8d4"></div>QW</div>
+  </div>
+
+  <div class="tiles-area" id="tilesArea"></div>
+
+  <div class="score-row">
+    <span class="score-num" id="scoreNum">0</span>
+    <span class="score-lbl">points</span>
+  </div>
+  <div class="breakdown" id="breakdown"></div>
+
+  <button onclick="addWord()" style="margin-bottom:20px;">Add word</button>
+
+  <div class="history">
+    <div class="history-header">
+      <span>Play history</span>
+      <button class="btn-danger" onclick="if(confirm('Start a new game?')){resetGame()}">New game</button>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<script>
+const TILE_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
+const BONUS_OPTS = [
+  {val:'none',label:'—'},{val:'dl',label:'DL'},{val:'tl',label:'TL'},{val:'ql',label:'QL'},
+  {val:'dw',label:'DW'},{val:'tw',label:'TW'},{val:'qw',label:'QW'},{val:'blank',label:'Blank'}
+];
+const BONUS_MULT = {
+  none:{l:1,w:1},dl:{l:2,w:1},tl:{l:3,w:1},ql:{l:4,w:1},
+  dw:{l:1,w:2},tw:{l:1,w:3},qw:{l:1,w:4},blank:{l:0,w:1}
+};
+const COLORS = ['#2563eb','#dc2626','#16a34a','#9333ea','#d97706','#0891b2'];
+
+let players = [], scores = [], history = [], activePlayer = 0, wordTotal = 0;
+
+function initSetup() {
+  const pi = document.getElementById('playerInputs');
+  pi.innerHTML = '';
+  [0,1].forEach(() => addPlayerField());
+}
+
+function addPlayerField() {
+  const pi = document.getElementById('playerInputs');
+  const idx = pi.children.length;
+  if (idx >= 6) return;
+  const row = document.createElement('div');
+  row.className = 'player-row';
+  row.innerHTML = `<div class="player-dot" style="background:${COLORS[idx]}"></div><input type="text" placeholder="Player ${idx+1}" maxlength="20" />`;
+  pi.appendChild(row);
+}
+
+function startGame() {
+  const inputs = document.querySelectorAll('#playerInputs input');
+  players = [];
+  inputs.forEach((inp, i) => players.push(inp.value.trim() || ('Player '+(i+1))));
+  scores = players.map(() => 0);
+  history = [];
+  activePlayer = 0;
+  document.getElementById('setup').style.display = 'none';
+  document.getElementById('game').style.display = 'block';
+  renderScoreboard();
+  renderToggle();
+  renderHistory();
+}
+
+function renderScoreboard() {
+  const sb = document.getElementById('scoreboard');
+  sb.innerHTML = '';
+  players.forEach((name, i) => {
+    const card = document.createElement('div');
+    card.className = 'player-card' + (i === activePlayer ? ' active-player' : '');
+    if (i === activePlayer) card.style.borderColor = COLORS[i];
+    card.innerHTML = `<div class="pc-name">${name}</div><div class="pc-score" style="color:${COLORS[i]}">${scores[i]}</div>${i===activePlayer?`<div class="pc-turn" style="color:${COLORS[i]}">● their turn</div>`:''}`;
+    sb.appendChild(card);
+  });
+}
+
+function renderToggle() {
+  const tog = document.getElementById('playerToggle');
+  tog.innerHTML = '';
+  players.forEach((name, i) => {
+    const btn = document.createElement('button');
+    btn.className = 'ptog' + (i === activePlayer ? ' sel' : '');
+    btn.textContent = name;
+    btn.style.borderColor = COLORS[i];
+    if (i === activePlayer) { btn.style.background = COLORS[i]; btn.style.color = '#fff'; }
+    else { btn.style.color = COLORS[i]; btn.style.background = '#fff'; }
+    btn.onclick = () => { activePlayer = i; renderToggle(); renderScoreboard(); };
+    tog.appendChild(btn);
+  });
+}
+
+function buildTiles() {
+  const word = document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  const area = document.getElementById('tilesArea');
+  const existing = area.querySelectorAll('.tile-wrap');
+  const prevBonuses = [];
+  existing.forEach(tw => { const s = tw.querySelector('select'); prevBonuses.push(s ? s.value : 'none'); });
+  area.innerHTML = '';
+  for (let i = 0; i < word.length; i++) {
+    const ch = word[i], pts = TILE_VALUES[ch] || 0, bonus = prevBonuses[i] || 'none';
+    const wrap = document.createElement('div'); wrap.className = 'tile-wrap';
+    const tile = document.createElement('div');
+    tile.className = 'tile-letter ' + (bonus !== 'none' ? bonus : '');
+    tile.id = 'tile-'+i;
+    tile.innerHTML = ch + `<span class="tile-pts">${pts}</span>`;
+    const sel = document.createElement('select'); sel.className = 'bonus-sel'; sel.id = 'bonus-'+i;
+    BONUS_OPTS.forEach(o => { const opt = document.createElement('option'); opt.value=o.val; opt.textContent=o.label; if(o.val===bonus)opt.selected=true; sel.appendChild(opt); });
+    sel.addEventListener('change', () => { tile.className='tile-letter '+(sel.value!=='none'?sel.value:''); calcScore(); });
+    wrap.appendChild(tile); wrap.appendChild(sel); area.appendChild(wrap);
+  }
+  calcScore();
+}
+
+function calcScore() {
+  const word = document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if (!word) { document.getElementById('scoreNum').textContent='0'; document.getElementById('breakdown').textContent=''; wordTotal=0; return; }
+  let letterSum=0, wordMult=1, parts=[];
+  for (let i=0; i<word.length; i++) {
+    const ch=word[i], base=TILE_VALUES[ch]||0;
+    const bonus=(document.getElementById('bonus-'+i)||{value:'none'}).value||'none';
+    const m=BONUS_MULT[bonus]||BONUS_MULT.none;
+    const lv=bonus==='blank'?0:base*m.l;
+    wordMult*=m.w; letterSum+=lv;
+    if(bonus!=='none') parts.push(ch+'×'+(bonus==='blank'?'0':m.l===1?'1':m.l));
+  }
+  wordTotal = letterSum * wordMult;
+  document.getElementById('scoreNum').textContent = wordTotal;
+  let bk = parts.join(', ');
+  if (wordMult>1) bk += (bk?' · ':'')+'word ×'+wordMult;
+  document.getElementById('breakdown').textContent = bk;
+}
+
+function addWord() {
+  const word = document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if (!word) return;
+  calcScore();
+  scores[activePlayer] += wordTotal;
+  history.unshift({word, score:wordTotal, player:activePlayer, name:players[activePlayer]});
+  activePlayer = (activePlayer + 1) % players.length;
+  renderScoreboard(); renderToggle(); renderHistory();
+  document.getElementById('wordInput').value='';
+  document.getElementById('tilesArea').innerHTML='';
+  document.getElementById('scoreNum').textContent='0';
+  document.getElementById('breakdown').textContent='';
+  wordTotal=0;
+  document.getElementById('wordInput').focus();
+}
+
+function renderHistory() {
+  const list = document.getElementById('historyList');
+  list.innerHTML='';
+  history.forEach(item => {
+    const row = document.createElement('div'); row.className='history-item';
+    row.innerHTML=`<div class="hi-left"><div class="hi-dot" style="background:${COLORS[item.player]}"></div><span class="hi-word">${item.word}</span><span class="hi-name">${item.name}</span></div><span class="hi-score" style="color:${COLORS[item.player]}">+${item.score}</span>`;
+    list.appendChild(row);
+  });
+}
+
+function resetGame() {
+  document.getElementById('setup').style.display='block';
+  document.getElementById('game').style.display='none';
+  document.getElementById('wordInput').value='';
+  document.getElementById('tilesArea').innerHTML='';
+  initSetup();
+}
+
+document.getElementById('wordInput').addEventListener('input', buildTiles);
+initSetup();
+</script>
+</body>
+</html>
