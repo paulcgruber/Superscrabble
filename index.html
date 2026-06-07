@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Super Scrabble Scorer</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: #f5f3ee; color: #1a1a1a; min-height: 100vh; padding: 16px; }
+  h1 { font-size: 20px; font-weight: 600; letter-spacing: -0.3px; margin-bottom: 4px; }
+  .subtitle { font-size: 13px; color: #888; margin-bottom: 20px; }
+  label { font-size: 13px; color: #666; display: block; margin-bottom: 4px; }
+  input, select, button { font-family: inherit; font-size: 15px; border-radius: 10px; border: 1px solid #ddd; background: #fff; color: #1a1a1a; padding: 8px 12px; outline: none; }
+  input:focus { border-color: #aaa; }
+  button { background: #1a1a1a; color: #fff; border: none; cursor: pointer; padding: 10px 18px; font-weight: 500; }
+  button:active { opacity: 0.8; }
+  .btn-ghost { background: none; color: #888; border: 1px solid #ddd; font-size: 13px; padding: 8px 14px; }
+  .btn-danger { background: none; color: #c0392b; border: none; font-size: 13px; padding: 0; text-decoration: underline; cursor: pointer; }
+
+  .setup { max-width: 400px; }
+  .player-row { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
+  .player-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink: 0; }
+  .player-row input { flex: 1; }
+  .setup-actions { display: flex; gap: 10px; align-items: center; margin-top: 12px; }
+
+  .game { display: none; }
+  .scoreboard { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .player-card { flex: 1; min-width: 90px; background: #fff; border: 1.5px solid #e5e5e5; border-radius: 12px; padding: 10px 12px; }
+  .player-card.active-player { border-width: 2px; }
+  .pc-name { font-size: 11px; color: #888; margin-bottom: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .pc-score { font-size: 24px; font-weight: 600; }
+  .pc-turn { font-size: 11px; font-weight: 600; margin-top: 2px; }
+
+  .section-label { font-size: 13px; color: #666; margin-bottom: 6px; }
+  .player-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .ptog { padding: 6px 14px; font-size: 13px; font-weight: 500; border-radius: 20px; border: 1.5px solid #ddd; background: #fff; color: #888; cursor: pointer; }
+  .ptog.sel { color: #fff; border-color: transparent; }
+
+  /* Dictionary selector */
+  .dict-row { display: flex; gap: 6px; align-items: center; margin-bottom: 14px; flex-wrap: wrap; }
+  .dict-row span { font-size: 12px; color: #888; }
+  .dict-btn { font-size: 12px; padding: 4px 12px; border-radius: 20px; border: 1.5px solid #ddd; background: #fff; color: #888; cursor: pointer; font-weight: 500; }
+  .dict-btn.sel { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+  .dict-btn.off { background: #f3f4f6; color: #bbb; border-color: #e5e5e5; }
+
+  .word-row { display: flex; gap: 8px; margin-bottom: 6px; }
+  .word-row input { flex: 1; font-size: 18px; letter-spacing: 3px; text-transform: uppercase; font-weight: 600; }
+
+  /* Dictionary status badge */
+  .dict-status { font-size: 12px; min-height: 20px; margin-bottom: 8px; display: flex; align-items: center; gap: 6px; }
+  .dict-badge { padding: 2px 8px; border-radius: 20px; font-weight: 600; font-size: 11px; }
+  .dict-badge.valid   { background: #d1fae5; color: #065f46; }
+  .dict-badge.invalid { background: #fee2e2; color: #991b1b; }
+  .dict-badge.checking { background: #f3f4f6; color: #888; }
+  .dict-badge.skipped { background: #f3f4f6; color: #aaa; }
+
+  .tiles-area { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 4px; min-height: 10px; }
+  .tile-wrap { display: flex; flex-direction: column; align-items: center; }
+  .tile-letter { width: 52px; height: 52px; background: #fff; border: 2.5px solid #ddd; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 20px; font-weight: 700; position: relative; color: #1a1a1a; cursor: pointer; user-select: none; transition: transform 0.1s; }
+  .tile-letter:active { transform: scale(0.93); }
+  .tile-pts { position: absolute; bottom: 3px; right: 5px; font-size: 9px; color: #aaa; font-weight: 400; }
+  .tile-badge { font-size: 10px; font-weight: 600; margin-top: 4px; padding: 1px 6px; border-radius: 20px; min-height: 16px; text-align: center; }
+
+  .tile-letter.dl  { background: #cce4f7; color: #1a5f8a; border-color: #7bbde0; }
+  .tile-letter.tl  { background: #7bbde0; color: #0d3f60; border-color: #4a9cc8; }
+  .tile-letter.ql  { background: #1a6fa8; color: #fff;    border-color: #0d4f7a; }
+  .tile-letter.dw  { background: #fddcbe; color: #8a3a00; border-color: #f0a86e; }
+  .tile-letter.tw  { background: #f0a86e; color: #6b2800; border-color: #e07030; }
+  .tile-letter.qw  { background: #e05c1a; color: #fff;    border-color: #b84000; }
+  .tile-letter.blank { color: #bbb; font-style: italic; border-style: dashed; }
+  .tile-letter.bingo-only { background: #fef08a; color: #713f12; border-color: #eab308; }
+  .tile-letter.bingo-combo { border-color: #eab308 !important; border-width: 3.5px; }
+
+  .add-btns { display: flex; gap: 8px; margin-bottom: 20px; flex-wrap: wrap; }
+  .add-btns button { flex: 1; min-width: 120px; font-size: 13px; padding: 10px 12px; }
+  .btn-same-turn { background: #fff; color: #1a1a1a; border: 1.5px solid #ddd; }
+
+  .sheet-overlay { position: fixed; inset: 0; z-index: 100; background: rgba(0,0,0,0.35); display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: #fff; border-radius: 16px 16px 0 0; padding: 16px 16px 32px; width: 100%; max-width: 420px; }
+  .sheet-title { font-size: 16px; font-weight: 600; text-align: center; margin-bottom: 14px; color: #1a1a1a; }
+  .tmg { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .tmb { padding: 13px 6px; font-size: 14px; font-weight: 600; border-radius: 10px; border: 1.5px solid #e5e5e5; background: #f9f9f9; color: #1a1a1a; cursor: pointer; text-align: center; }
+  .tmb.active-sel { box-shadow: 0 0 0 3px #1a1a1a; }
+  .tmb.full-width { grid-column: 1 / -1; }
+  .tmb.opt-none  { background: #f9f9f9; color: #555; border-color: #ddd; }
+  .tmb.opt-dl    { background: #cce4f7; color: #1a5f8a; border-color: #7bbde0; }
+  .tmb.opt-tl    { background: #7bbde0; color: #0d3f60; border-color: #4a9cc8; }
+  .tmb.opt-ql    { background: #1a6fa8; color: #fff;    border-color: #0d4f7a; }
+  .tmb.opt-dw    { background: #fddcbe; color: #8a3a00; border-color: #f0a86e; }
+  .tmb.opt-tw    { background: #f0a86e; color: #6b2800; border-color: #e07030; }
+  .tmb.opt-qw    { background: #e05c1a; color: #fff;    border-color: #b84000; }
+  .tmb.opt-blank { background: #f3f4f6; color: #6b7280; border-color: #d1d5db; }
+  .tmb.opt-bingo { background: #fef08a; color: #713f12; border-color: #eab308; }
+  .tmb.opt-bingo.bingo-used { background: #f3f4f6; color: #aaa; border-color: #e5e5e5; }
+  .tmb.cancel-btn { background: #f3f4f6; color: #444; border: none; margin-top: 2px; font-size: 15px; font-weight: 500; }
+
+  .score-row { display: flex; align-items: baseline; gap: 10px; margin-bottom: 4px; }
+  .score-num { font-size: 38px; font-weight: 700; }
+  .score-lbl { font-size: 13px; color: #888; }
+  .breakdown { font-size: 12px; color: #999; margin-bottom: 14px; min-height: 18px; }
+
+  /* History */
+  .history { border-top: 1px solid #e5e5e5; padding-top: 14px; margin-top: 4px; }
+  .history-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; gap: 8px; }
+  .history-header span { font-size: 13px; font-weight: 600; color: #666; }
+  .history-header-btns { display: flex; gap: 8px; align-items: center; }
+  .btn-reorder { background: none; color: #555; border: 1px solid #ddd; font-size: 12px; padding: 4px 10px; border-radius: 8px; cursor: pointer; }
+  .btn-reorder.active { background: #1a1a1a; color: #fff; border-color: #1a1a1a; }
+
+  /* Turn group */
+  .turn-group { margin-bottom: 4px; }
+  .turn-group-inner { border-left: 3px solid #e5e5e5; padding-left: 8px; margin-left: 4px; }
+  .turn-group-inner.reorder-highlight { border-left-color: #aaa; background: #fafafa; border-radius: 0 8px 8px 0; }
+  .turn-label { font-size: 10px; color: #bbb; padding: 4px 0 2px; letter-spacing: 0.3px; display: flex; justify-content: space-between; align-items: center; }
+  .turn-arrows { display: flex; gap: 4px; }
+  .hi-arrow { background: none; border: 1px solid #ddd; border-radius: 6px; font-size: 12px; padding: 1px 7px; cursor: pointer; color: #555; line-height: 1.5; }
+  .hi-arrow:disabled { color: #ddd; border-color: #eee; }
+
+  .history-item { display: flex; justify-content: space-between; align-items: center; font-size: 13px; padding: 7px 0; border-bottom: 1px solid #f5f5f5; cursor: pointer; gap: 8px; }
+  .history-item:last-child { border-bottom: none; }
+  .history-item:active { background: #f9f9f9; }
+  .hi-left { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+  .hi-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
+  .hi-word { font-weight: 600; letter-spacing: 1px; }
+  .hi-name { font-size: 11px; color: #aaa; white-space: nowrap; }
+  .hi-bingo { font-size: 10px; background: #fef08a; color: #713f12; padding: 1px 5px; border-radius: 4px; font-weight: 600; flex-shrink: 0; }
+  .hi-invalid { font-size: 10px; background: #fee2e2; color: #991b1b; padding: 1px 5px; border-radius: 4px; font-weight: 600; flex-shrink: 0; }
+  .hi-score { font-weight: 700; white-space: nowrap; flex-shrink: 0; }
+  .hi-edit-icon { font-size: 13px; color: #ccc; flex-shrink: 0; }
+
+  /* Edit sheet */
+  .edit-sheet-scroll { max-height: 85vh; overflow-y: auto; }
+  .edit-player-toggle { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 14px; }
+  .edit-section-label { font-size: 12px; color: #888; margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.5px; }
+  .edit-actions { display: flex; gap: 8px; margin-top: 14px; }
+  .edit-actions button { flex: 1; font-size: 14px; padding: 12px; }
+  .btn-delete { background: #fff0f0; color: #c0392b; border: 1px solid #f5c6c6; }
+  .btn-save { background: #1a1a1a; color: #fff; }
+</style>
+</head>
+<body>
+
+<h1>Super Scrabble Scorer</h1>
+
+<div class="setup" id="setup">
+  <label style="margin-bottom:10px;">Who's playing?</label>
+  <div id="playerInputs"></div>
+  <div class="setup-actions">
+    <button onclick="startGame()">Start game</button>
+    <button class="btn-ghost" onclick="addPlayerField()">+ player</button>
+  </div>
+</div>
+
+<div class="game" id="game">
+  <div class="scoreboard" id="scoreboard"></div>
+
+  <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;">
+    <p class="section-label" style="margin-bottom:0">Whose turn?</p>
+    <button class="btn-ghost" style="font-size:12px;padding:4px 10px;" onclick="addGamePlayer()">+ player</button>
+  </div>
+  <div class="player-toggle" id="playerToggle"></div>
+
+  <p class="section-label">Dictionary check</p>
+  <div class="dict-row">
+    <span>Check:</span>
+    <button class="dict-btn" id="dictNWL" onclick="setDict('nwl')">NWL (North America)</button>
+    <button class="dict-btn" id="dictCSW" onclick="setDict('csw')">CSW (International)</button>
+    <button class="dict-btn off" id="dictOff" onclick="setDict('off')">Off</button>
+  </div>
+  <div id="dictLoadStatus" style="font-size:11px;color:#aaa;margin-bottom:8px;min-height:16px;"></div>
+
+  <p class="section-label">Word played</p>
+  <div class="word-row">
+    <input type="text" id="wordInput" placeholder="Type word…" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+  </div>
+  <div class="dict-status" id="dictStatus"></div>
+
+  <div class="tiles-area" id="tilesArea"></div>
+  <p id="tileHint" style="display:none;font-size:12px;color:#aaa;margin:4px 0 18px;">Tap a tile to set its bonus square</p>
+  <div class="score-row">
+    <span class="score-num" id="scoreNum">0</span>
+    <span class="score-lbl">points</span>
+  </div>
+  <div class="breakdown" id="breakdown"></div>
+  <div class="add-btns">
+    <button onclick="addWord(true)">Add word</button>
+    <button class="btn-same-turn" onclick="addWord(false)">+ same turn</button>
+  </div>
+
+  <div class="history">
+    <div class="history-header">
+      <span>Play history</span>
+      <div class="history-header-btns">
+        <button class="btn-reorder" id="reorderBtn" onclick="toggleReorder()">Reorder</button>
+        <button class="btn-danger" onclick="if(confirm('Start a new game?')){resetGame()}">New game</button>
+      </div>
+    </div>
+    <div id="historyList"></div>
+  </div>
+</div>
+
+<!-- Tile bonus menu -->
+<div class="sheet-overlay" id="tileMenuOverlay" style="display:none" onclick="closeMenu()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-title" id="tileMenuTitle">Set bonus</div>
+    <div class="tmg" id="tileMenuGrid"></div>
+  </div>
+</div>
+
+<!-- Edit history sheet -->
+<div class="sheet-overlay" id="editSheetOverlay" style="display:none" onclick="closeEditSheet()">
+  <div class="sheet edit-sheet-scroll" onclick="event.stopPropagation()">
+    <div class="sheet-title">Edit word</div>
+    <div class="edit-section-label">Player</div>
+    <div class="edit-player-toggle" id="editPlayerToggle"></div>
+    <div class="edit-section-label">Word & bonuses</div>
+    <div class="word-row" style="margin-bottom:10px;">
+      <input type="text" id="editWordInput" placeholder="Word…" autocomplete="off" autocorrect="off" autocapitalize="characters" spellcheck="false" />
+    </div>
+    <div class="tiles-area" id="editTilesArea"></div>
+    <div class="score-row">
+      <span class="score-num" id="editScoreNum">0</span>
+      <span class="score-lbl">points</span>
+    </div>
+    <div class="breakdown" id="editBreakdown"></div>
+    <div class="edit-actions">
+      <button class="btn-delete" onclick="deleteHistoryEntry()">🗑 Delete</button>
+      <button class="btn-save" onclick="saveHistoryEntry()">Save changes</button>
+    </div>
+  </div>
+</div>
+
+<!-- Tile bonus menu for edit sheet -->
+<div class="sheet-overlay" id="editTileMenuOverlay" style="display:none" onclick="closeEditMenu()">
+  <div class="sheet" onclick="event.stopPropagation()">
+    <div class="sheet-title" id="editTileMenuTitle">Set bonus</div>
+    <div class="tmg" id="editTileMenuGrid"></div>
+  </div>
+</div>
+
+<script>
+const TILE_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
+const BONUS_MULT = {none:{l:1,w:1},dl:{l:2,w:1},tl:{l:3,w:1},ql:{l:4,w:1},dw:{l:1,w:2},tw:{l:1,w:3},qw:{l:1,w:4},blank:{l:0,w:1}};
+const BADGE_TEXT  = {none:'',dl:'DL',tl:'TL',ql:'QL',dw:'DW',tw:'TW',qw:'QW',blank:'BLANK'};
+const BADGE_BG    = {none:'',dl:'#cce4f7',tl:'#7bbde0',ql:'#1a6fa8',dw:'#fddcbe',tw:'#f0a86e',qw:'#e05c1a',blank:'#f3f4f6'};
+const BADGE_COLOR = {none:'',dl:'#1a5f8a',tl:'#0d3f60',ql:'#fff',dw:'#8a3a00',tw:'#6b2800',qw:'#fff',blank:'#6b7280'};
+const COLORS = ['#2563eb','#dc2626','#16a34a','#9333ea','#d97706','#0891b2'];
+
+let players=[], scores=[], history=[], activePlayer=0, wordTotal=0;
+let bonuses=[], bingos=[], bingoUsed=false;
+let turnCounter=0; // increments on advance, stays same for same-turn
+let reorderMode=false;
+
+// Dictionary state
+let dictMode='off';
+let dictCheckTimer=null;
+const WORD_LISTS = { nwl: null, csw: null }; // null=not loaded, Set=loaded
+const DICT_URLS = {
+  nwl: 'https://raw.githubusercontent.com/jessicatysu/scrabble/master/TWL06.txt',
+  csw: 'https://raw.githubusercontent.com/MReeveCO/sowpods/main/sowpods.txt'
+};
+const DICT_LABELS = { nwl: 'NWL (North America)', csw: 'CSW (International)' };
+
+// Edit state
+let editIdx=null, editBonuses=[], editBingos=[], editBingoUsed=false, editPlayer=0, editWordTotal=0;
+
+// ---- Setup ----
+function initSetup(){
+  const pi=document.getElementById('playerInputs'); pi.innerHTML='';
+  [0,1].forEach(()=>addPlayerField());
+  setDict('off');
+}
+function addPlayerField(){
+  const pi=document.getElementById('playerInputs'), idx=pi.children.length;
+  if(idx>=6) return;
+  const row=document.createElement('div'); row.className='player-row';
+  row.innerHTML=`<div class="player-dot" style="background:${COLORS[idx]}"></div><input type="text" placeholder="Player ${idx+1}" maxlength="20" />`;
+  pi.appendChild(row);
+}
+function addGamePlayer(){
+  if(players.length>=6){alert('Maximum 6 players');return;}
+  const name=prompt('New player name:','Player '+(players.length+1));
+  if(!name||!name.trim()) return;
+  players.push(name.trim());
+  scores.push(0);
+  renderScoreboard(); renderToggle();
+}
+
+function startGame(){
+  const inputs=document.querySelectorAll('#playerInputs input'); players=[];
+  inputs.forEach((inp,i)=>players.push(inp.value.trim()||('Player '+(i+1))));
+  scores=players.map(()=>0); history=[]; activePlayer=0; turnCounter=0;
+  document.getElementById('setup').style.display='none';
+  document.getElementById('game').style.display='block';
+  renderScoreboard(); renderToggle(); renderHistory();
+}
+
+// ---- Dictionary ----
+async function loadWordList(mode){
+  if(WORD_LISTS[mode]) return true;
+  const statusEl=document.getElementById('dictLoadStatus');
+  statusEl.textContent=`Loading ${DICT_LABELS[mode]} word list…`;
+  try {
+    const res=await fetch(DICT_URLS[mode]);
+    if(!res.ok) throw new Error('fetch failed');
+    const text=await res.text();
+    WORD_LISTS[mode]=new Set(text.trim().split(/\r?\n/).map(w=>w.trim().toUpperCase()).filter(w=>w.length>0));
+    statusEl.textContent=`${DICT_LABELS[mode]} loaded — ${WORD_LISTS[mode].size.toLocaleString()} words`;
+    setTimeout(()=>{ statusEl.textContent=''; }, 3000);
+    return true;
+  } catch(e){
+    statusEl.textContent=`⚡ Could not load word list — check your connection`;
+    return false;
+  }
+}
+
+function setDict(mode){
+  dictMode=mode;
+  ['NWL','CSW','Off'].forEach(k=>{
+    const el=document.getElementById('dict'+k);
+    if(!el) return;
+    el.classList.remove('sel','off');
+    const isActive=(k==='NWL'&&mode==='nwl')||(k==='CSW'&&mode==='csw')||(k==='Off'&&mode==='off');
+    if(isActive) el.classList.add('sel');
+    else if(k==='Off') el.classList.add('off');
+  });
+  if(mode!=='off'){
+    loadWordList(mode).then(ok=>{
+      if(ok){ const w=document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,''); if(w) triggerDictCheck(w); }
+    });
+  } else {
+    setDictStatus('','');
+    document.getElementById('dictLoadStatus').textContent='';
+  }
+}
+
+function triggerDictCheck(word){
+  clearTimeout(dictCheckTimer);
+  if(dictMode==='off'||word.length<2){ setDictStatus('',''); return; }
+  if(!WORD_LISTS[dictMode]){ setDictStatus('checking','Loading dictionary…'); return; }
+  dictCheckTimer=setTimeout(()=>checkWord(word), 200);
+}
+
+function checkWord(word){
+  if(dictMode==='off'||!WORD_LISTS[dictMode]) return;
+  const cur=document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if(cur!==word) return;
+  const valid=WORD_LISTS[dictMode].has(word);
+  const label=DICT_LABELS[dictMode];
+  if(valid) setDictStatus('valid',`✓ Valid in ${label}`);
+  else setDictStatus('invalid',`✗ Not found in ${label}`);
+}
+
+function setDictStatus(type,msg){
+  const el=document.getElementById('dictStatus'); el.innerHTML='';
+  if(!msg) return;
+  const badge=document.createElement('span');
+  badge.className='dict-badge '+(type||'skipped');
+  badge.textContent=msg;
+  el.appendChild(badge);
+}
+
+
+// ---- Score calc ----
+function recomputeScores(){
+  scores=players.map(()=>0);
+  history.forEach(item=>{scores[item.player]+=item.score;});
+}
+function renderScoreboard(){
+  const sb=document.getElementById('scoreboard'); sb.innerHTML='';
+  players.forEach((name,i)=>{
+    const card=document.createElement('div');
+    card.className='player-card'+(i===activePlayer?' active-player':'');
+    if(i===activePlayer) card.style.borderColor=COLORS[i];
+    card.innerHTML=`<div class="pc-name">${name}</div><div class="pc-score" style="color:${COLORS[i]}">${scores[i]}</div>${i===activePlayer?`<div class="pc-turn" style="color:${COLORS[i]}">● their turn</div>`:''}`;
+    sb.appendChild(card);
+  });
+}
+function renderToggle(){
+  const tog=document.getElementById('playerToggle'); tog.innerHTML='';
+  players.forEach((name,i)=>{
+    const btn=document.createElement('button');
+    btn.className='ptog'+(i===activePlayer?' sel':'');
+    btn.textContent=name; btn.style.borderColor=COLORS[i];
+    if(i===activePlayer){btn.style.background=COLORS[i];btn.style.color='#fff';}
+    else{btn.style.color=COLORS[i];btn.style.background='#fff';}
+    btn.onclick=()=>{activePlayer=i;renderToggle();renderScoreboard();};
+    tog.appendChild(btn);
+  });
+}
+
+// ---- Tile builder ----
+function buildTileArea(areaId,word,bonusArr,bingoArr,onTileClick){
+  const area=document.getElementById(areaId); area.innerHTML='';
+  for(let i=0;i<word.length;i++){
+    const ch=word[i],pts=TILE_VALUES[ch]||0,bonus=bonusArr[i],hasBingo=bingoArr[i];
+    const wrap=document.createElement('div'); wrap.className='tile-wrap';
+    const tile=document.createElement('div');
+    let tc='tile-letter';
+    if(hasBingo&&bonus==='none') tc+=' bingo-only';
+    else if(bonus!=='none'){tc+=' '+bonus;if(hasBingo)tc+=' bingo-combo';}
+    tile.className=tc;
+    tile.innerHTML=ch+`<span class="tile-pts">${pts}</span>`;
+    tile.onclick=()=>onTileClick(i,ch);
+    const badge=document.createElement('div'); badge.className='tile-badge';
+    if(hasBingo&&bonus==='none'){badge.textContent='BINGO';badge.style.background='#fef08a';badge.style.color='#713f12';}
+    else if(bonus!=='none'){let txt=BADGE_TEXT[bonus];if(hasBingo)txt+='+🟡';badge.textContent=txt;badge.style.background=BADGE_BG[bonus];badge.style.color=BADGE_COLOR[bonus];}
+    wrap.appendChild(tile); wrap.appendChild(badge); area.appendChild(wrap);
+  }
+}
+function buildTiles(){
+  const word=document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  bonuses=bonuses.slice(0,word.length); bingos=bingos.slice(0,word.length);
+  while(bonuses.length<word.length) bonuses.push('none');
+  while(bingos.length<word.length) bingos.push(false);
+  bingoUsed=bingos.some(b=>b);
+  buildTileArea('tilesArea',word,bonuses,bingos,(i,ch)=>openMenu(i,ch));
+  document.getElementById('tileHint').style.display=word.length>0?'block':'none';
+  calcScore();
+  triggerDictCheck(word);
+}
+
+function calcScoreFrom(word,bonusArr,bingoArr){
+  let letterSum=0,wordMult=1,parts=[];
+  for(let i=0;i<word.length;i++){
+    const ch=word[i],base=TILE_VALUES[ch]||0,bonus=bonusArr[i]||'none';
+    const m=BONUS_MULT[bonus]||BONUS_MULT.none,lv=bonus==='blank'?0:base*m.l;
+    wordMult*=m.w; letterSum+=lv;
+    if(bonus!=='none') parts.push(ch+'×'+(bonus==='blank'?'0':m.l===1?'1':m.l));
+  }
+  const hasBingo=bingoArr.some(b=>b);
+  const total=letterSum*wordMult+(hasBingo?50:0);
+  let bk=parts.join(', ');
+  if(wordMult>1) bk+=(bk?' · ':'')+'word ×'+wordMult;
+  if(hasBingo) bk+=(bk?' · ':'')+'bingo +50';
+  return{total,bk};
+}
+function calcScore(){
+  const word=document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if(!word){document.getElementById('scoreNum').textContent='0';document.getElementById('breakdown').textContent='';wordTotal=0;return;}
+  const{total,bk}=calcScoreFrom(word,bonuses,bingos);
+  wordTotal=total;
+  document.getElementById('scoreNum').textContent=total;
+  document.getElementById('breakdown').textContent=bk;
+}
+
+// ---- Tile bonus menu builder ----
+function buildBonusMenu(gridId,curBonus,curBingo,bingoUsedFlag,onSelect,onBingo,onClose){
+  const grid=document.getElementById(gridId); grid.innerHTML='';
+  const b=(cls,txt,fn)=>{const btn=document.createElement('button');btn.className='tmb '+cls;btn.textContent=txt;if(fn)btn.onclick=fn;grid.appendChild(btn);};
+  b('opt-none full-width'+(curBonus==='none'?' active-sel':''),'Normal',()=>onSelect('none'));
+  [['dl','DL'],['tl','TL'],['ql','QL']].forEach(([v,l])=>b('opt-'+v+(curBonus===v?' active-sel':''),l,()=>onSelect(v)));
+  [['dw','DW'],['tw','TW'],['qw','QW']].forEach(([v,l])=>b('opt-'+v+(curBonus===v?' active-sel':''),l,()=>onSelect(v)));
+  b('opt-blank full-width'+(curBonus==='blank'?' active-sel':''),'Blank tile (0 pts)',()=>onSelect('blank'));
+  const bingoAvail=curBingo||!bingoUsedFlag;
+  const bingoCls='opt-bingo full-width'+(curBingo?' active-sel':'')+(bingoAvail?'':' bingo-used');
+  const bingoTxt=bingoAvail?(curBingo?'★ Bingo! +50 pts (tap to remove)':'★ Bingo! +50 pts'):'Bingo already used this word';
+  b(bingoCls,bingoTxt,bingoAvail?onBingo:null);
+  b('cancel-btn full-width','Cancel',onClose);
+}
+function openMenu(idx,ch){
+  document.getElementById('tileMenuTitle').textContent=`Bonus for "${ch}"`;
+  buildBonusMenu('tileMenuGrid',bonuses[idx],bingos[idx],bingoUsed,
+    (val)=>{bonuses[idx]=val;closeMenu();buildTiles();},
+    ()=>{bingos[idx]=!bingos[idx];bingoUsed=bingos.some(b=>b);closeMenu();buildTiles();},
+    closeMenu);
+  document.getElementById('tileMenuOverlay').style.display='flex';
+}
+function closeMenu(){document.getElementById('tileMenuOverlay').style.display='none';}
+
+// ---- Add word ----
+function addWord(advance){
+  const word=document.getElementById('wordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if(!word) return;
+  calcScore();
+  const hasBingo=bingos.some(b=>b);
+  const bonusCopy=[...bonuses],bingoCopy=[...bingos];
+  const dictEl=document.getElementById('dictStatus');
+  const isInvalid=dictEl.querySelector('.dict-badge.invalid')!=null;
+  scores[activePlayer]+=wordTotal;
+  history.unshift({word,score:wordTotal,player:activePlayer,name:players[activePlayer],bingo:hasBingo,bonuses:bonusCopy,bingos:bingoCopy,turnId:turnCounter,invalid:isInvalid});
+  if(advance) { turnCounter++; activePlayer=(activePlayer+1)%players.length; }
+  renderScoreboard(); renderToggle(); renderHistory();
+  document.getElementById('wordInput').value='';
+  document.getElementById('tilesArea').innerHTML='';
+  document.getElementById('tileHint').style.display='none';
+  document.getElementById('scoreNum').textContent='0';
+  document.getElementById('breakdown').textContent='';
+  setDictStatus('','');
+  bonuses=[]; bingos=[]; bingoUsed=false; wordTotal=0;
+  document.getElementById('wordInput').focus();
+}
+
+// ---- Reorder (turn-grouped) ----
+function toggleReorder(){
+  reorderMode=!reorderMode;
+  document.getElementById('reorderBtn').classList.toggle('active',reorderMode);
+  document.getElementById('reorderBtn').textContent=reorderMode?'Done':'Reorder';
+  renderHistory();
+}
+
+function getGroups(){
+  // Group history entries by turnId. history[0] is most recent.
+  const groups=[];
+  const seen={};
+  history.forEach((item,idx)=>{
+    const tid=item.turnId;
+    if(!(tid in seen)){seen[tid]=groups.length;groups.push({turnId:tid,indices:[]});}
+    groups[seen[tid]].indices.push(idx);
+  });
+  return groups; // each group = {turnId, indices:[...history indices in order]}
+}
+
+function moveTurnGroup(groupIdx,dir){
+  const groups=getGroups();
+  const newGroupIdx=groupIdx+dir;
+  if(newGroupIdx<0||newGroupIdx>=groups.length) return;
+
+  // Get all history indices for these two groups
+  const grpA=groups[groupIdx].indices;
+  const grpB=groups[newGroupIdx].indices;
+
+  // Extract items
+  const itemsA=grpA.map(i=>history[i]);
+  const itemsB=grpB.map(i=>history[i]);
+
+  // Rebuild history: swap the two groups in place
+  // All indices involved, sorted
+  const allIndices=[...grpA,...grpB].sort((a,b)=>a-b);
+  const replacement=dir<0?[...itemsA,...itemsB]:[...itemsB,...itemsA];
+  allIndices.forEach((hi,i)=>{history[hi]=replacement[i];});
+
+  renderHistory();
+}
+
+// ---- History render ----
+function renderHistory(){
+  const list=document.getElementById('historyList'); list.innerHTML='';
+  const groups=getGroups();
+
+  groups.forEach((grp,grpIdx)=>{
+    const groupDiv=document.createElement('div'); groupDiv.className='turn-group';
+    const inner=document.createElement('div'); inner.className='turn-group-inner'+(reorderMode?' reorder-highlight':'');
+
+    const labelRow=document.createElement('div'); labelRow.className='turn-label';
+    const labelTxt=document.createElement('span');
+    labelTxt.textContent=grp.indices.length>1?`Turn — ${grp.indices.length} words`:'Turn';
+    labelRow.appendChild(labelTxt);
+
+    if(reorderMode){
+      const arrows=document.createElement('div'); arrows.className='turn-arrows';
+      const up=document.createElement('button'); up.className='hi-arrow'; up.textContent='▲'; up.disabled=grpIdx===0;
+      up.onclick=()=>moveTurnGroup(grpIdx,-1);
+      const dn=document.createElement('button'); dn.className='hi-arrow'; dn.textContent='▼'; dn.disabled=grpIdx===groups.length-1;
+      dn.onclick=()=>moveTurnGroup(grpIdx,1);
+      arrows.appendChild(up); arrows.appendChild(dn); labelRow.appendChild(arrows);
+    }
+    inner.appendChild(labelRow);
+
+    grp.indices.forEach(idx=>{
+      const item=history[idx];
+      const row=document.createElement('div'); row.className='history-item';
+      if(!reorderMode) row.onclick=()=>openEditSheet(idx);
+
+      const left=document.createElement('div'); left.className='hi-left';
+      left.innerHTML=`<div class="hi-dot" style="background:${COLORS[item.player]}"></div><span class="hi-word">${item.word}</span><span class="hi-name">${item.name}</span>${item.bingo?'<span class="hi-bingo">BINGO</span>':''}${item.invalid?'<span class="hi-invalid">⚠ Not found</span>':''}`;
+
+      const right=document.createElement('div'); right.style.cssText='display:flex;align-items:center;gap:6px;flex-shrink:0;';
+      const scoreSpan=document.createElement('span'); scoreSpan.className='hi-score'; scoreSpan.style.color=COLORS[item.player]; scoreSpan.textContent='+'+item.score;
+      right.appendChild(scoreSpan);
+      if(!reorderMode){const icon=document.createElement('span');icon.className='hi-edit-icon';icon.textContent='✏️';right.appendChild(icon);}
+
+      row.appendChild(left); row.appendChild(right); inner.appendChild(row);
+    });
+
+    groupDiv.appendChild(inner); list.appendChild(groupDiv);
+  });
+}
+
+// ---- Edit sheet ----
+function openEditSheet(idx){
+  editIdx=idx;
+  const item=history[idx];
+  editPlayer=item.player;
+  editBonuses=item.bonuses?[...item.bonuses]:item.word.split('').map(()=>'none');
+  editBingos=item.bingos?[...item.bingos]:item.word.split('').map(()=>false);
+  editBingoUsed=editBingos.some(b=>b);
+
+  const tog=document.getElementById('editPlayerToggle'); tog.innerHTML='';
+  players.forEach((name,i)=>{
+    const btn=document.createElement('button');
+    btn.className='ptog'+(i===editPlayer?' sel':'');
+    btn.textContent=name; btn.style.borderColor=COLORS[i];
+    if(i===editPlayer){btn.style.background=COLORS[i];btn.style.color='#fff';}
+    else{btn.style.color=COLORS[i];btn.style.background='#fff';}
+    btn.onclick=()=>{editPlayer=i;refreshEditPlayerToggle();};
+    tog.appendChild(btn);
+  });
+
+  document.getElementById('editWordInput').value=item.word;
+  rebuildEditTiles();
+  document.getElementById('editSheetOverlay').style.display='flex';
+}
+function refreshEditPlayerToggle(){
+  document.getElementById('editPlayerToggle').querySelectorAll('.ptog').forEach((btn,i)=>{
+    btn.className='ptog'+(i===editPlayer?' sel':'');
+    btn.style.borderColor=COLORS[i];
+    if(i===editPlayer){btn.style.background=COLORS[i];btn.style.color='#fff';}
+    else{btn.style.color=COLORS[i];btn.style.background='#fff';}
+  });
+}
+function rebuildEditTiles(){
+  const word=document.getElementById('editWordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  editBonuses=editBonuses.slice(0,word.length); editBingos=editBingos.slice(0,word.length);
+  while(editBonuses.length<word.length) editBonuses.push('none');
+  while(editBingos.length<word.length) editBingos.push(false);
+  editBingoUsed=editBingos.some(b=>b);
+  buildTileArea('editTilesArea',word,editBonuses,editBingos,(i,ch)=>openEditMenu(i,ch));
+  const{total,bk}=calcScoreFrom(word,editBonuses,editBingos);
+  editWordTotal=total;
+  document.getElementById('editScoreNum').textContent=total;
+  document.getElementById('editBreakdown').textContent=bk;
+}
+function openEditMenu(idx,ch){
+  document.getElementById('editTileMenuTitle').textContent=`Bonus for "${ch}"`;
+  buildBonusMenu('editTileMenuGrid',editBonuses[idx],editBingos[idx],editBingoUsed,
+    (val)=>{editBonuses[idx]=val;closeEditMenu();rebuildEditTiles();},
+    ()=>{editBingos[idx]=!editBingos[idx];editBingoUsed=editBingos.some(b=>b);closeEditMenu();rebuildEditTiles();},
+    closeEditMenu);
+  document.getElementById('editTileMenuOverlay').style.display='flex';
+}
+function closeEditMenu(){document.getElementById('editTileMenuOverlay').style.display='none';}
+function closeEditSheet(){document.getElementById('editSheetOverlay').style.display='none';editIdx=null;}
+
+function saveHistoryEntry(){
+  if(editIdx===null) return;
+  const word=document.getElementById('editWordInput').value.toUpperCase().replace(/[^A-Z]/g,'');
+  if(!word) return;
+  const hasBingo=editBingos.some(b=>b);
+  const orig=history[editIdx];
+  history[editIdx]={...orig,word,score:editWordTotal,player:editPlayer,name:players[editPlayer],bingo:hasBingo,bonuses:[...editBonuses],bingos:[...editBingos]};
+  recomputeScores(); renderScoreboard(); renderHistory(); closeEditSheet();
+}
+function deleteHistoryEntry(){
+  if(editIdx===null) return;
+  if(!confirm('Delete this word from history?')) return;
+  history.splice(editIdx,1);
+  recomputeScores(); renderScoreboard(); renderHistory(); closeEditSheet();
+}
+
+function resetGame(){
+  document.getElementById('setup').style.display='block';
+  document.getElementById('game').style.display='none';
+  document.getElementById('wordInput').value='';
+  document.getElementById('tilesArea').innerHTML='';
+  bonuses=[]; bingos=[]; bingoUsed=false; reorderMode=false; turnCounter=0;
+  initSetup();
+}
+
+document.getElementById('wordInput').addEventListener('input',buildTiles);
+document.getElementById('editWordInput').addEventListener('input',rebuildEditTiles);
+initSetup();
+</script>
+</body>
+</html>
